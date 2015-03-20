@@ -17,6 +17,7 @@ class FMWrapper {
         vector<int> locate(const string& query);
         string extract(int start, int length);
         int memory_size();
+        size_t index_size();
 
     private:
         fm_index_type fm_index;

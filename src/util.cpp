@@ -105,7 +105,8 @@ namespace cr_util {
     }
 
     boost::filesystem::path create_tmpdir() {
-        boost::filesystem::path tmpdir = boost::filesystem::temp_directory_path();
+        //boost::filesystem::path tmpdir = boost::filesystem::temp_directory_path();
+        boost::filesystem::path tmpdir = boost::filesystem::current_path();
         srand(time(NULL));
         tmpdir /= to_string(rand() % 1000000);
 

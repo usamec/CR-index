@@ -28,7 +28,7 @@ class CRIndex {
         static bool verbose;
 
         CRIndex(string path, int read_length = DEFAULT_READ_LENGTH,
-                bool verbose = DEFAULT_VERBOSITY);
+                bool verbose = DEFAULT_VERBOSITY, bool crappy_preprocess = false);
         CRIndex(string superstring, vector<t_pos> positions, vector<t_diff> diff,
                 int read_length = DEFAULT_READ_LENGTH,
                 bool verbose = DEFAULT_VERBOSITY);
@@ -38,7 +38,11 @@ class CRIndex {
 
         static tuple<string, vector<t_pos>, vector<t_diff>>
                      preprocess(string path, bool verbose = DEFAULT_VERBOSITY);
+        static tuple<string, vector<t_pos>, vector<t_diff>>
+                     crappy_preprocess(string path, bool verbose = DEFAULT_VERBOSITY);
 
+        void SaveToFile(string filename);
+        static CRIndex* LoadFromFile(string filename);
     private:
         int read_length;
         vector<t_pos> positions;
@@ -53,4 +57,6 @@ class CRIndex {
         static void debug(vector<string> msg);
         static void debug(vector<int> msg);
         static void info(string msg);
+
+        CRIndex() {}
 };

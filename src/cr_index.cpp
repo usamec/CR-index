@@ -6,7 +6,7 @@ const bool CRIndex::DEFAULT_VERBOSITY = false;
 const int CRIndex::DEFAULT_READ_LENGTH = 100;
 bool CRIndex::verbose = CRIndex::DEFAULT_VERBOSITY;
 
-CRIndex::CRIndex(string p, int rl, bool v) {
+CRIndex::CRIndex(string p, int rl, bool v, bool crappy) {
     this->positions = vector<t_pos>();
     this->diff = vector<t_diff>();
     this->read_length = rl;
@@ -15,8 +15,13 @@ CRIndex::CRIndex(string p, int rl, bool v) {
     debug("Constructing CRIndex...");
     string superstring;
 
-    tie(superstring, this->positions, this->diff) = preprocess(p, v);
+    if (crappy) {
+      tie(superstring, this->positions, this->diff) = crappy_preprocess(p, v);
+    } else {
+      tie(superstring, this->positions, this->diff) = preprocess(p, v);
+    }
     this->fm_index = FMWrapper(superstring);
+    debug("FM index done\n");
     sort(this->positions.begin(), this->positions.end());
     superstring.clear();
 }
@@ -30,6 +35,87 @@ CRIndex::CRIndex(string superstring, vector<t_pos> p, vector<t_diff> d, int rl, 
     this->fm_index = FMWrapper(superstring);
     sort(this->positions.begin(), this->positions.end());
     superstring.clear();
+}
+
+void CRIndex::SaveToFile(string filename) {
+    ofstream of(filename);
+    of << read_length << endl;
+    of << fm_index.extract(0, fm_index.index_size()-1) << endl;
+    of << positions.size() << endl;
+    for (auto &e: positions) {
+        of << get<0>(e) << " " << get<1>(e) << " " << get<2>(e) << endl;
+    }
+    of << diff.size() << endl;
+    for (auto &e: diff) {
+        of << get<0>(e) << " " << get<1>(e) << " " << get<2>(e) << endl;
+    }
+    of.close();
+}
+
+CRIndex* CRIndex::LoadFromFile(string filename) {
+    ifstream f(filename);
+    CRIndex* index = new CRIndex();
+    f >> index->read_length;
+    string superstring;
+    f >> superstring;
+    index->fm_index = FMWrapper(superstring);
+    superstring.clear();
+    int positions_length;
+    f >> positions_length;
+    index->positions.resize(positions_length);
+    for (int i = 0; i < positions_length; i++) {
+        f >> get<0>(index->positions[i]);
+        f >> get<1>(index->positions[i]);
+        f >> get<2>(index->positions[i]);
+    }
+    int diff_length;
+    f >> diff_length;
+    index->diff.resize(diff_length);
+    for (int i = 0; i < diff_length; i++) {
+        f >> get<0>(index->diff[i]);
+        f >> get<1>(index->diff[i]);
+        f >> get<2>(index->diff[i]);
+    }
+    f.close();
+    return index;
+}
+
+tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::crappy_preprocess(string p, bool v) {
+    CRIndex::verbose = v;
+    string superstring;
+    vector<t_pos> _positions = vector<t_pos>();
+    vector<t_diff> _diff = vector<t_diff>();
+    string read_label, read, read_meta, read_q;
+    ifstream reads_istream(p);
+    int total_reads_size = 0;
+    int read_count = 0;
+    while (getline(reads_istream, read_label)) {
+        getline(reads_istream, read);
+        getline(reads_istream, read_meta);
+        getline(reads_istream, read_q);
+
+        boost::algorithm::trim(read);
+        boost::algorithm::trim(read_label);
+
+        int read_id = read_count;
+
+        total_reads_size += read.length();
+
+        if (read_count % 10000 == 0) {
+            debug("Processed " + to_string(read_count) + " reads");
+        }
+
+        _positions.push_back(make_tuple(superstring.length(), read_id, 0));
+        superstring += read;
+
+        read_count++;
+    }
+    reads_istream.close();
+    debug("Positions size: " + to_string(_positions.size()));
+    info("Total reads size: " + to_string(total_reads_size) + "\n" +
+            "Superstring size:  " + to_string(superstring.size()) + "\n" +
+            "Compress ratio: " + to_string((float)total_reads_size / (float)superstring.size()));
+    return make_tuple(superstring, _positions, _diff);
 }
 
 tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool v) {
@@ -226,6 +312,8 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
         read_count++;
     }
     orig_crit_reads_istream.close();
+    debug("Superstring:" + superstring.substr(0, 20) + "..." + 
+          superstring.substr(superstring.size()-20));
 
     if (skipped > 0) {
         info("WARNING: skipped " + to_string(skipped) + " reads");
@@ -236,7 +324,8 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
     debug("Positions size: " + to_string(_positions.size()));
     info("Total reads size: " + to_string(total_reads_size) + "\n" +
             "Superstring size:  " + to_string(superstring.size()) + "\n" +
-            "Compress ratio: " + to_string((float)total_reads_size / (float)superstring.size()));
+            "Compress ratio: " + to_string((float)total_reads_size / (float)superstring.size()) + "\n" +
+            "Diff size: " + to_string(_diff.size()));
 
     return make_tuple(superstring, _positions, _diff);
 }

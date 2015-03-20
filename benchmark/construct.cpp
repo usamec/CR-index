@@ -69,7 +69,8 @@ bool test(string index_type, string reads_filename, int read_length,
     cout << "query_length: " << query_length << endl;
     t1 = std::chrono::system_clock::now();
     if (index_type == "cr") {
-        CRIndex cr = CRIndex(reads_filename, read_length, false);
+        CRIndex cr = CRIndex(reads_filename, read_length, true);
+        cout << "Referenced memory: " << get_referenced_memory_size() << "kB" << endl;
     } else if (index_type == "hash") {
         HashIndex h = HashIndex(reads_filename, query_length, true);
     } else if (index_type == "gk") {

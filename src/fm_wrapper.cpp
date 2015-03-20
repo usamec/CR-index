@@ -24,3 +24,7 @@ string FMWrapper::extract(int start, int length) {
 int FMWrapper::memory_size() {
     return sdsl::size_in_bytes(this->fm_index);
 }
+
+size_t FMWrapper::index_size() {
+  return fm_index.size();
+}
