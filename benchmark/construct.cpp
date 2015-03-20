@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <chrono>
+#include <malloc.h>
 #include "cr_index.hpp"
 #include "hash_index.hpp"
 #include <libGkArrays/gkArrays.h>
@@ -70,7 +71,9 @@ bool test(string index_type, string reads_filename, int read_length,
     t1 = std::chrono::system_clock::now();
     if (index_type == "cr") {
         CRIndex cr = CRIndex(reads_filename, read_length, true);
-        cout << "Referenced memory: " << get_referenced_memory_size() << "kB" << endl;
+        malloc_trim(42);
+        cout << "Referenced memory: " << get_referenced_memory_size() << "kB ";
+        cout << cr.find_indexes("CCATCCT").size() << " hits for CCATCCT" << endl;
     } else if (index_type == "hash") {
         HashIndex h = HashIndex(reads_filename, query_length, true);
     } else if (index_type == "gk") {

@@ -11,7 +11,7 @@
 
 using namespace std;
 
-void go(string genome_filename, string index_filename) {
+void go(string genome_filename, string index_filename, bool crappy) {
     ifstream f(genome_filename);
     string l;
     getline(f, l);
@@ -20,13 +20,13 @@ void go(string genome_filename, string index_filename) {
     int read_length = l.size();
 
     cout << "Building CRIndex ... " << endl;
-    CRIndex rm = CRIndex(genome_filename, read_length, true, true);
+    CRIndex rm = CRIndex(genome_filename, read_length, true, crappy);
     rm.SaveToFile(index_filename);
 }
 
 int main(int argc, char** argv) {
     if (argc < 3) {
-        cerr << "Usage: " << argv[0] << " <filename> <filename>" << endl;
+        cerr << "Usage: " << argv[0] << " <filename> <filename> [crappy]" << endl;
         cerr << "Examples: " << endl;
         cerr << "  Read .fastq file and construct CR-index and save to file" << endl;
         cerr << "  " << argv[0] << " bacteria.fastq index.data" << endl;
@@ -34,7 +34,11 @@ int main(int argc, char** argv) {
     }
 
     try {
-        go(argv[1], argv[2]);
+        if (argc == 3) {
+            go(argv[1], argv[2], false);
+        } else {
+            go(argv[1], argv[2], true);
+        }
     } catch(exception &e) {
         cerr << "Error: " << e.what() << endl;
         exit(1);
