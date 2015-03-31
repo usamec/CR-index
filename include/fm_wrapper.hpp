@@ -14,7 +14,8 @@ using namespace std;
 
 template<uint32_t n1=8, uint32_t n2=5000000>
 class FMWrapper {
-    typedef csa_wt<wt_huff<bit_vector>, n1, n2> fm_index_type;
+    typedef csa_wt<wt_huff<bit_vector, rank_support_v<>, select_support_scan<>>, n1, n2> fm_index_type;
+//    typedef csa_wt<wt_rlmn<bit_vector, rank_support_v5<>, select_support_mcl<1>, wt_huff<>>, n1, n2> fm_index_type;
     public:
         FMWrapper() {}
         FMWrapper(const string& data){
