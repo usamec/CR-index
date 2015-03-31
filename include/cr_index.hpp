@@ -16,11 +16,12 @@
 #include <boost/filesystem.hpp>
 #include "fm_wrapper.hpp"
 #include "util.hpp"
+#include "positions_vector.hpp"
+#include "diff_vector.hpp"
 
 using namespace std;
 
-typedef tuple<int, int, bool> t_pos;
-typedef tuple<int, int, char> t_diff;
+typedef PositionsVector<sd_vector<>, bit_vector, sd_vector<>> t_pv_vector;
 
 class CRIndex {
     public:
@@ -48,6 +49,8 @@ class CRIndex {
         int read_length;
         vector<t_pos> positions;
         vector<t_diff> diff;
+        t_pv_vector pv_vector;
+        DiffVector diff_vector;
         FMWrapper<> fm_index;
 
         vector<t_pos> locate_positions(const string& s);

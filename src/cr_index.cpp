@@ -60,24 +60,29 @@ CRIndex* CRIndex::LoadFromFile(string filename) {
     string superstring;
     f >> superstring;
     index->fm_index = FMWrapper<>(superstring);
-    superstring.clear();
     int positions_length;
     f >> positions_length;
-    index->positions.resize(positions_length);
+    vector<t_pos> positions(positions_length);
+    positions.resize(positions_length);
     for (int i = 0; i < positions_length; i++) {
-        f >> get<0>(index->positions[i]);
-        f >> get<1>(index->positions[i]);
-        f >> get<2>(index->positions[i]);
+        f >> get<0>(positions[i]);
+        f >> get<1>(positions[i]);
+        f >> get<2>(positions[i]);
     }
     int diff_length;
     f >> diff_length;
-    index->diff.resize(diff_length);
+    vector<t_diff> diff(diff_length);
     for (int i = 0; i < diff_length; i++) {
-        f >> get<0>(index->diff[i]);
-        f >> get<1>(index->diff[i]);
-        f >> get<2>(index->diff[i]);
+        f >> get<0>(diff[i]);
+        f >> get<1>(diff[i]);
+        f >> get<2>(diff[i]);
     }
     f.close();
+    index->pv_vector = t_pv_vector(superstring.size(), positions);
+    index->diff_vector = DiffVector(positions.size(), index->read_length, diff);
+    cout << "pv size " << index->pv_vector.memory_size() << " " << positions.size() << endl;
+    cout << "diffs size " << diff.size() << " " << diff.size() * 12 << endl;
+    cout << "new diffs " << index->diff_vector.memory_size() << endl;
     return index;
 }
 
@@ -346,11 +351,17 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
           missing_read_count++;
           assert(false);
         } else {
+            bool done = false;
             for (int m : matches) {
                 _positions.push_back(make_tuple(m, read_id, 0));
+                done = true;
+                break;
             }
-            for (int m : matches2) {
-                _positions.push_back(make_tuple(m, read_id, 1));
+            if (!done) {
+              for (int m : matches2) {
+                  _positions.push_back(make_tuple(m, read_id, 1));
+                  break;
+              }
             }
         }
         read_count++;
@@ -383,9 +394,8 @@ vector<t_pos> CRIndex::locate_positions2(const string& s, const string& s_check)
     for (auto i : indexes) {
         t_pos start_index(i + s.length() - this->read_length, -1, 0);
         t_pos end_index(i, numeric_limits<int>::max(), 1);
-        auto low = lower_bound(this->positions.begin(), this->positions.end(), start_index);
-        auto up = upper_bound(this->positions.begin(), this->positions.end(), end_index);
-        for (auto it = low; it != up; it++) {
+        auto pv = pv_vector.GetRange(max(0, (int)(i + s.length() - this->read_length)), i+1);
+        for (auto it = pv.begin(); it != pv.end(); it++) {
             // drop false positives
             int pos = get<0>(*it);
             int read_id = get<1>(*it);
@@ -395,9 +405,10 @@ vector<t_pos> CRIndex::locate_positions2(const string& s, const string& s_check)
 
             t_diff start_index2(read_id, -1, 'A');
             t_diff end_index2(read_id, numeric_limits<int>::max(), 'A');
-            auto low2 = lower_bound(this->diff.begin(), this->diff.end(), start_index2);
-            auto up2 = upper_bound(this->diff.begin(), this->diff.end(), end_index2);
-
+            vector<t_diff> diffs = this->diff_vector.GetDiffs(read_id);
+            auto low2 = diffs.begin();
+            auto up2 = diffs.end();
+            
             string s2 = s;
             if (rev_compl) {
                 s2 = cr_util::rev_compl(s2);
