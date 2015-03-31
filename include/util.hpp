@@ -1,3 +1,6 @@
+#ifndef UTIL_HPP__
+#define UTIL_HPP__
+
 #include <string>
 #include <vector>
 #include <fstream>
@@ -20,3 +23,5 @@ namespace cr_util {
     bool indexes_close(vector<int> indexes, int k);
     vector<string> strings_with_edt1(const string& s);
 }
+
+#endif

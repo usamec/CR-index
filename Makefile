@@ -4,6 +4,8 @@ SRCEXT=cpp
 BUILDDIR=build
 EXAMPLESDIR=examples
 BENCHMARKSDIR=benchmark
+INCLUDEDIR=include
+TOOLSDIR=tools
 
 #CFLAGS=-g -W -Wall -O0 -DDEBUG -std=c++11
 CFLAGS=-W -Wall -O3 -std=c++11
@@ -13,12 +15,13 @@ SOURCES=$(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 OBJECTS=$(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
 EXAMPLES=$(patsubst $(EXAMPLESDIR)/%.$(SRCEXT),%,$(shell find $(EXAMPLESDIR) -type f -name *.$(SRCEXT)))
 BENCHMARKS=$(patsubst $(BENCHMARKSDIR)/%.$(SRCEXT),%,$(shell find $(BENCHMARKSDIR) -type f -name *.$(SRCEXT)))
-LIB=-lsdsl -ldivsufsort -ldivsufsort64 -lboost_filesystem -lboost_system
+TOOLS=$(patsubst $(TOOLSDIR)/%.$(SRCEXT),%,$(shell find $(TOOLSDIR) -type f -name *.$(SRCEXT)))
+LIB=-lsdsl -ldivsufsort -ldivsufsort64 -lboost_filesystem -lboost_system -lboost_iostreams
 INC=-I include
 
 all: $(OBJECTS)
 
-$(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
+$(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT) $(INCLUDEDIR)/%.hpp
 	@mkdir -p $(BUILDDIR)
 	@echo " $(CC) $(CFLAGS) $(INC) -c -o $@ $<"; $(CC) $(CFLAGS) $(INC) -c -o $@ $<
 
@@ -30,6 +33,8 @@ examples: $(EXAMPLES)
 
 benchmarks: $(BENCHMARKS)
 
+tools: $(TOOLS)
+
 $(EXAMPLES): $(OBJECTS)
 	@echo " Building examples...";
 	@echo " $(CC) $(CFLAGS) $^ -o bin/$@ $(EXAMPLESDIR)/$@.$(SRCEXT) $(INC) $(LIB)"; $(CC) $(CFLAGS) $^ -o bin/$@ $(EXAMPLESDIR)/$@.$(SRCEXT) $(INC) $(LIB)
@@ -38,5 +43,5 @@ $(BENCHMARKS): $(OBJECTS)
 	@echo " Building benchmarks...";
 	@echo " $(CC) $(CFLAGS) $^ -o bin/$@ $(BENCHMARKSDIR)/$@.$(SRCEXT) $(INC) $(LIB) -lGkArrays -lz"; $(CC) $(CFLAGS) $^ -o bin/$@ $(BENCHMARKSDIR)/$@.$(SRCEXT) $(INC) $(LIB) -lGkArrays -lz
 
-correctness: $(OBJECTS)
-	@echo " $(CC) $(CFLAGS) $^ -o bin/$@ tools/$@.$(SRCEXT) $(INC) $(LIB)"; $(CC) $(CFLAGS) $^ -o bin/$@ tools/$@.$(SRCEXT) $(INC) $(LIB)
+$(TOOLS): $(OBJECTS)
+	@echo " $(CC) $(CFLAGS) $^ -o bin/$@ $(TOOLSDIR)/$@.$(SRCEXT) $(INC) $(LIB)"; $(CC) $(CFLAGS) $^ -o bin/$@ $(TOOLSDIR)/$@.$(SRCEXT) $(INC) $(LIB)

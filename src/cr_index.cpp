@@ -1,4 +1,5 @@
 #include "cr_index.hpp"
+#include "read_corrector.hpp"
 
 using namespace std;
 
@@ -20,7 +21,7 @@ CRIndex::CRIndex(string p, int rl, bool v, bool crappy) {
     } else {
       tie(superstring, this->positions, this->diff) = preprocess(p, v);
     }
-    this->fm_index = FMWrapper(superstring);
+    this->fm_index = FMWrapper<>(superstring);
     debug("FM index done\n");
     sort(this->positions.begin(), this->positions.end());
     superstring.clear();
@@ -32,7 +33,7 @@ CRIndex::CRIndex(string superstring, vector<t_pos> p, vector<t_diff> d, int rl, 
     this->read_length = rl;
     CRIndex::verbose = v;
 
-    this->fm_index = FMWrapper(superstring);
+    this->fm_index = FMWrapper<>(superstring);
     sort(this->positions.begin(), this->positions.end());
     superstring.clear();
 }
@@ -58,7 +59,7 @@ CRIndex* CRIndex::LoadFromFile(string filename) {
     f >> index->read_length;
     string superstring;
     f >> superstring;
-    index->fm_index = FMWrapper(superstring);
+    index->fm_index = FMWrapper<>(superstring);
     superstring.clear();
     int positions_length;
     f >> positions_length;
@@ -134,7 +135,7 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
     debug(cr_util::execute_command("sga index -a ropebwt -c -t 4 -p " +
             p_tmpdir.string() + " " + orig_reads_path.string()));
     debug("Running sga correct");
-    debug(cr_util::execute_command("sga correct -t 4 -p " +
+    debug(cr_util::execute_command("sga correct -t 16 -p " +
                 p_tmpdir.string() + " -o " + p_tmpdir.string() + ".ec.fa " +
                 orig_reads_path.string()));
     boost::filesystem::path corr_reads_path = boost::filesystem::path(
@@ -143,13 +144,11 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
 
     boost::filesystem::path corr_ncrit_reads_path = boost::filesystem::path(
                 p_tmpdir.string() + ".ncrit.corr");
-    boost::filesystem::path orig_crit_reads_path = boost::filesystem::path(
-                p_tmpdir.string() + ".crit");
 
     ifstream orig_reads_istream(orig_reads_path.string());
     ifstream corr_reads_istream(corr_reads_path.string());
     ofstream corr_ncrit_reads_ostream(corr_ncrit_reads_path.string());
-    ofstream orig_crit_reads_ostream(orig_crit_reads_path.string());
+    ReadCorrector read_corrector;
 
     string orig_read;
     string corr_read;
@@ -157,10 +156,26 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
     string read_meta;
     string read_q;
     string ll;
+    debug("Filling read_corrector");
+    while (getline(orig_reads_istream, read_label)) {
+        getline(orig_reads_istream, orig_read);
+        getline(orig_reads_istream, read_meta);
+        getline(orig_reads_istream, read_q);
+
+        boost::algorithm::trim(orig_read);
+        boost::algorithm::trim(corr_read);
+        read_corrector.AddRead(orig_read);
+    }
+    orig_reads_istream.clear();
+    orig_reads_istream.seekg(0);
+
     int crit_count = 0;
     int ncrit_count = 0;
     int read_count = 0;
+    int bad_l = 0;
+    map<int, int> diff_dist;
     debug("Searching for critical reads");
+    vector<string> orig_reads_buf;
     while (getline(orig_reads_istream, read_label)) {
         getline(corr_reads_istream, ll);
         getline(corr_reads_istream, corr_read);
@@ -173,14 +188,18 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
 
         boost::algorithm::trim(orig_read);
         boost::algorithm::trim(corr_read);
+        if (orig_read.size() != corr_read.size()) {
+          bad_l++;
+        }
         vector<int> diff_indexes = cr_util::diff_indexes(orig_read, corr_read);
-        int read_id = read_count;
         if (diff_indexes.size() >= 2 && cr_util::indexes_close(diff_indexes, 15)) {
-            orig_crit_reads_ostream << "@" << read_count << endl;
-            orig_crit_reads_ostream << orig_read << endl;
-            orig_crit_reads_ostream << read_meta << endl;
-            orig_crit_reads_ostream << string(orig_read.size(), '~') << endl;
-            crit_count += 1;
+          corr_read = read_corrector.CorrectRead(orig_read);
+          diff_indexes = cr_util::diff_indexes(orig_read, corr_read);
+        }
+        int read_id = read_count;
+        diff_dist[diff_indexes.size()]++;
+        if (diff_indexes.size() >= 2 && cr_util::indexes_close(diff_indexes, 15)) {
+            assert(false);
         } else {
             corr_ncrit_reads_ostream << "@" << read_count << endl;
             corr_ncrit_reads_ostream << corr_read << endl;
@@ -191,11 +210,14 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
             }
             ncrit_count += 1;
         }
-
+        orig_reads_buf.push_back(orig_read);
         read_count++;
     }
+    cout << "diff dist" << endl;
+    for (auto &e: diff_dist) {
+      cout << e.first << ": " << e.second << endl;
+    }
     corr_ncrit_reads_ostream.close();
-    orig_crit_reads_ostream.close();
     orig_reads_istream.close();
     corr_reads_istream.close();
 
@@ -232,7 +254,7 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
     string superstring = cr_util::load_contigs(contigs_path.string());
 
     // construct FM-index, find each read in it and add missing reads
-    FMWrapper _fm_index = FMWrapper(superstring);
+    FMWrapper<1,1> _fm_index(superstring);
 
     debug("Superstring size: " + to_string(superstring.size()) + " (before" +
             " querying)");
@@ -244,6 +266,10 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
     read_count = 0;
     int skipped = 0;
     ifstream corr_ncrit_reads_istream(corr_ncrit_reads_path.string());
+    boost::filesystem::path missing_path = boost::filesystem::path(p_tmpdir.string() + "missing.fastq");
+    boost::filesystem::path missing_over_path = boost::filesystem::path(p_tmpdir.string() + "missing.asqg.gz");
+    boost::filesystem::path missing_contig_path = boost::filesystem::path(p_tmpdir.string() + "missing.fa");
+    ofstream missing_file(missing_path.string());
     while (getline(corr_ncrit_reads_istream, read_label)) {
         getline(corr_ncrit_reads_istream, read);
         getline(corr_ncrit_reads_istream, read_meta);
@@ -269,27 +295,34 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
 
         if (matches.size() == 0 && matches2.size() == 0) {
             missing_read_count++;
-            _positions.push_back(make_tuple(superstring.length(), read_id, 0));
-            superstring += read;
-        } else {
-            for (int m : matches) {
-                _positions.push_back(make_tuple(m, read_id, 0));
-            }
-            for (int m : matches2) {
-                _positions.push_back(make_tuple(m, read_id, 1));
-            }
+            missing_file << "@" << read_id << endl;
+            missing_file << read << endl;
+            missing_file << "+" << endl;
+            missing_file << string(read.size(), '~') << endl;
         }
-
         read_count++;
     }
-    corr_ncrit_reads_istream.close();
 
-    debug("Querying FM index for original critical reads");
-    ifstream orig_crit_reads_istream(orig_crit_reads_path.string());
-    while (getline(orig_crit_reads_istream, read_label)) {
-        getline(orig_crit_reads_istream, read);
-        getline(orig_crit_reads_istream, read_meta);
-        getline(orig_crit_reads_istream, read_q);
+    missing_file.close();
+    cout << "missing count " << missing_read_count << endl;
+    debug(cr_util::execute_command("sga index -a ropebwt -c -t 4 -p " +
+            p_tmpdir.string() + "missing " + missing_path.string()));
+    debug(cr_util::execute_command("sga overlap -t 4 -m 25 -p " + p_tmpdir.string() + "missing " +
+                                   missing_path.string())); 
+    debug(cr_util::execute_command("bin/overlaper crmissing.asqg.gz " +
+                                   missing_contig_path.string()));  
+    read_count = 0;
+    superstring += cr_util::load_contigs(missing_contig_path.string());
+    cout << "Superstring size: " << superstring.size() << endl;
+    debug("Querying FM index for all reads");
+    corr_ncrit_reads_istream.clear();
+    corr_ncrit_reads_istream.seekg(0);
+    _fm_index = FMWrapper<1,1>(superstring);
+    missing_read_count = 0;
+    while (getline(corr_ncrit_reads_istream, read_label)) {
+        getline(corr_ncrit_reads_istream, read);
+        getline(corr_ncrit_reads_istream, read_meta);
+        getline(corr_ncrit_reads_istream, read_q);
 
         boost::algorithm::trim(read);
         boost::algorithm::trim(read_label);
@@ -300,18 +333,31 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
 
         int read_id = stoi(read_label.substr(1));
 
-        total_reads_size += read.length();
-
         if (read_count % 10000 == 0) {
             debug("Processed " + to_string(read_count) + " reads");
         }
 
-        _positions.push_back(make_tuple(superstring.length(), read_id, 0));
-        superstring += read;
+        vector<int> matches = _fm_index.locate(read);
+        vector<int> matches2 = _fm_index.locate(cr_util::rev_compl(read));
 
+        if (matches.size() == 0 && matches2.size() == 0) {
+          cout << "missing  " << read << endl;      
+          cout << "missingr " << cr_util::rev_compl(read) << endl;      
+          missing_read_count++;
+          assert(false);
+        } else {
+            for (int m : matches) {
+                _positions.push_back(make_tuple(m, read_id, 0));
+            }
+            for (int m : matches2) {
+                _positions.push_back(make_tuple(m, read_id, 1));
+            }
+        }
         read_count++;
     }
-    orig_crit_reads_istream.close();
+    
+    corr_ncrit_reads_istream.close();
+
     debug("Superstring:" + superstring.substr(0, 20) + "..." + 
           superstring.substr(superstring.size()-20));
 

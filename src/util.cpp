@@ -85,6 +85,7 @@ namespace cr_util {
     }
 
     string execute_command(const string &command) {
+        cout << "go " << command << endl;
         string output;
         const redi::pstreams::pmode mode = redi::pstreams::pstdout |
                 redi::pstreams::pstderr;

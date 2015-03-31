@@ -63,7 +63,7 @@ size_t get_referenced_memory_size() {
     return result;
 }
 
-void go(string index_filename) {
+void go(string index_filename, string bac_filename) {
     cout << "Building CRIndex ... " << endl;
     CRIndex *rm = CRIndex::LoadFromFile(index_filename);
     cout << "Referenced memory: " << get_referenced_memory_size() << "kB" << endl;
@@ -73,10 +73,35 @@ void go(string index_filename) {
     cout << "Referenced memory: " << get_referenced_memory_size() << "kB" << endl;
     cout << res.size() << endl;
     cout << "Referenced memory: " << get_referenced_memory_size() << "kB" << endl;
+    cout << "Querying ..." << endl;
+
+    ifstream bac(bac_filename);
+    string line;
+    string buf;
+    while (getline(bac, line)) {
+      if (line[0] == '>') continue;
+      boost::to_upper(line);
+      buf += line;
+    }
+    vector<string> queries;
+    for (int i = 0; i < 10000; i++) {
+      queries.push_back(buf.substr(rand()%(buf.size() - 20), 14));
+    }
+    chrono::time_point<std::chrono::system_clock> t1, t2;
+    chrono::duration<double> elapsed;
+    t1 = std::chrono::system_clock::now();
+    int total_found = 0;
+    for (int i = 0; i < queries.size(); i++) {
+      total_found += rm->find_indexes(queries[i]).size();
+    }
+    cout << "total found" << total_found << endl;
+    t2 = std::chrono::system_clock::now();
+    elapsed = t2 - t1;
+    cout << "Querying took " << elapsed.count() << "s" << endl;
 }
 
 int main(int argc, char** argv) {
-    if (argc < 2) {
+    if (argc < 3) {
         cerr << "Usage: " << argv[0] << " <filename>" << endl;
         cerr << "Examples: " << endl;
         cerr << "  Read index file and construct CR-index" << endl;
@@ -85,7 +110,7 @@ int main(int argc, char** argv) {
     }
 
     try {
-        go(argv[1]);
+        go(argv[1], argv[2]);
     } catch(exception &e) {
         cerr << "Error: " << e.what() << endl;
         exit(1);

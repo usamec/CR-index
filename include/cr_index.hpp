@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <limits>
+#include <map>
 #include <iostream>
 #include <fstream>
 #include <tuple>
@@ -47,7 +48,7 @@ class CRIndex {
         int read_length;
         vector<t_pos> positions;
         vector<t_diff> diff;
-        FMWrapper fm_index;
+        FMWrapper<> fm_index;
 
         vector<t_pos> locate_positions(const string& s);
         vector<t_pos> locate_positions2(const string& s, const string& check_s);
