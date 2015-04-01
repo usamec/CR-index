@@ -69,10 +69,6 @@ void go(string index_filename, string bac_filename) {
     cout << "Referenced memory: " << get_referenced_memory_size() << "kB" << endl;
     malloc_trim(42);
     cout << "Referenced memory: " << get_referenced_memory_size() << "kB" << endl;
-    vector<int> res = rm->find_indexes("CCATCTT");
-    cout << "Referenced memory: " << get_referenced_memory_size() << "kB" << endl;
-    cout << res.size() << endl;
-    cout << "Referenced memory: " << get_referenced_memory_size() << "kB" << endl;
     cout << "Querying ..." << endl;
 
     ifstream bac(bac_filename);
@@ -85,7 +81,7 @@ void go(string index_filename, string bac_filename) {
     }
     vector<string> queries;
     for (int i = 0; i < 10000; i++) {
-      queries.push_back(buf.substr(rand()%(buf.size() - 20), 14));
+      queries.push_back(buf.substr(rand()%(buf.size() - 20), 15));
     }
     chrono::time_point<std::chrono::system_clock> t1, t2;
     chrono::duration<double> elapsed;

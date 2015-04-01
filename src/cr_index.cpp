@@ -83,6 +83,32 @@ CRIndex* CRIndex::LoadFromFile(string filename) {
     cout << "pv size " << index->pv_vector.memory_size() << " " << positions.size() << endl;
     cout << "diffs size " << diff.size() << " " << diff.size() * 12 << endl;
     cout << "new diffs " << index->diff_vector.memory_size() << endl;
+    index->bloom_filter = BloomFilter(diff.size() * 15, 0.2);
+    for (auto &p: positions) {
+      int pos, read_id;
+      bool rev;
+      tie(pos, read_id, rev) = p;
+      auto diffs = index->diff_vector.GetDiffs(read_id);
+      string read_str = superstring.substr(pos, index->read_length);
+      if (rev) {
+        read_str = cr_util::rev_compl(read_str);
+      }
+      for (auto d: diffs) {
+        int read_id, pos;
+        char new_base;
+        tie(read_id, pos, new_base) = d;
+        for (int i = max(0, pos-14); i <= pos; i++) {
+          string kmer = read_str.substr(i, 15);
+          string kmer2 = kmer;
+          kmer2[pos-i] = new_base;
+          if (!rev) {
+            index->bloom_filter.Add(kmer, kmer2);
+          } else {
+            index->bloom_filter.Add(cr_util::rev_compl(kmer), cr_util::rev_compl(kmer2)); 
+          }
+        }
+      }
+    }
     return index;
 }
 
@@ -119,8 +145,8 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::crappy_preprocess(string p
     reads_istream.close();
     debug("Positions size: " + to_string(_positions.size()));
     info("Total reads size: " + to_string(total_reads_size) + "\n" +
-            "Superstring size:  " + to_string(superstring.size()) + "\n" +
-            "Compress ratio: " + to_string((float)total_reads_size / (float)superstring.size()));
+          "Superstring size:  " + to_string(superstring.size()) + "\n" +
+          "Compress ratio: " + to_string((float)total_reads_size / (float)superstring.size()));
     return make_tuple(superstring, _positions, _diff);
 }
 
@@ -388,6 +414,8 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
 }
 
 vector<t_pos> CRIndex::locate_positions2(const string& s, const string& s_check) {
+    static long long calls = 0;
+    static long long empty_calls = 0;
     vector<t_pos> retval;
     vector<int> indexes = this->fm_index.locate(s);
 
@@ -437,6 +465,10 @@ vector<t_pos> CRIndex::locate_positions2(const string& s, const string& s_check)
             }
         }
     }
+    calls += 1;
+    if (indexes.empty()) empty_calls += 1;
+    if (calls % 100000 == 0)
+      cout << "calls " << calls << " " << empty_calls << endl;
 
     return retval;
 }
@@ -444,9 +476,13 @@ vector<t_pos> CRIndex::locate_positions2(const string& s, const string& s_check)
 vector<t_pos> CRIndex::locate_positions(const string& s) {
     vector<t_pos> retval = locate_positions2(s, s);
 
-    for (string s2 : cr_util::strings_with_edt1(s)) {
-        vector<t_pos> temp = locate_positions2(s2, s);
-        retval.insert(retval.end(), temp.begin(), temp.end());
+    if (this->diff_vector.size() > 0) {
+      for (string s2 : cr_util::strings_with_edt1(s)) {
+          if (bloom_filter.Test(s2, s)) {
+            vector<t_pos> temp = locate_positions2(s2, s);
+            retval.insert(retval.end(), temp.begin(), temp.end());
+          }
+      }
     }
 
     return retval;
@@ -497,10 +533,13 @@ string CRIndex::extract_original_read(t_pos read_p) {
     int read_id = get<1>(read_p);
     bool rev_compl = get<2>(read_p);
 
-    t_diff start_index(read_id, -1, 'A');
+/*    t_diff start_index(read_id, -1, 'A');
     t_diff end_index(read_id, numeric_limits<int>::max(), 'A');
     auto low = lower_bound(this->diff.begin(), this->diff.end(), start_index);
-    auto up = upper_bound(this->diff.begin(), this->diff.end(), end_index);
+    auto up = upper_bound(this->diff.begin(), this->diff.end(), end_index);*/
+    vector<t_diff> diffs = this->diff_vector.GetDiffs(read_id);
+    auto low = diffs.begin();
+    auto up = diffs.end();
 
     string retval = this->fm_index.extract(pos, this->read_length);
     if (rev_compl) {

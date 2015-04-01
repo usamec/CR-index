@@ -97,6 +97,10 @@ class DiffVector {
       return ret;
     }
 
+    int size() const {
+      return diffs.size();
+    }
+
     t_vector data;
     rank_type rank;
     select_type select;

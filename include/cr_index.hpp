@@ -18,6 +18,7 @@
 #include "util.hpp"
 #include "positions_vector.hpp"
 #include "diff_vector.hpp"
+#include "bloom_filter.hpp"
 
 using namespace std;
 
@@ -51,6 +52,7 @@ class CRIndex {
         vector<t_diff> diff;
         t_pv_vector pv_vector;
         DiffVector diff_vector;
+        BloomFilter bloom_filter;
         FMWrapper<> fm_index;
 
         vector<t_pos> locate_positions(const string& s);
