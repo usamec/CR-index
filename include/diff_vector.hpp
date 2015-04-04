@@ -57,9 +57,9 @@ class DiffVector {
 
     DiffVector(size_t read_count, size_t read_length_, 
                vector<t_diff> diffs_) :
-        read_length(read_length_), data(read_count*read_length_), diffs(diffs_.size()) {
+        data(read_count*read_length_), read_length(read_length_), diffs(diffs_.size()) {
       bit_vector data_(read_count*read_length_);
-      for (int i = 0; i < diffs_.size(); i++) {
+      for (size_t i = 0; i < diffs_.size(); i++) {
         int read_id, read_pos;
         char change;
         tie(read_id, read_pos, change) = diffs_[i];

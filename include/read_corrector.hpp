@@ -11,7 +11,7 @@ class ReadCorrector {
     }
 
     void AddRead(string read) {
-      for (int i = 0; i + kmer_ <= read.size(); i++) {
+      for (size_t i = 0; i + kmer_ <= read.size(); i++) {
         kmer_counts_[read.substr(i, kmer_)]++;
         kmer_counts_[rev_compl(read.substr(i, kmer_))]++;
       }
@@ -19,7 +19,7 @@ class ReadCorrector {
 
     string CorrectRead(string read) {
       char alpha[] = "ACGT";
-      for (int i = 0; i + kmer_ <= read.size(); i++) {
+      for (size_t i = 0; i + kmer_ <= read.size(); i++) {
         if (kmer_counts_[read.substr(i, kmer_)] < bad_kmer_limit_) {
           string bad_kmer = read.substr(i, kmer_);
           string best_correction = bad_kmer;

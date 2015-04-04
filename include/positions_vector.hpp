@@ -81,8 +81,7 @@ class PositionsVector {
       sdsl::util::bit_compress(read_ids);
       hits_rank = rank_type(&hits);
       hits_select = select_type(&hits);
-      printf("sizes %d %d %d\n", hits.size(), hits_rank.size(), dups.size());
-
+      cout << "sizes " << hits.size() << " " << hits_rank.size() << " " << dups.size() << endl;    
       dups_ids.resize(dups.size());
       dups_reverses.resize(dups.size());
       bit_vector dups_bitmap_(positions.size());

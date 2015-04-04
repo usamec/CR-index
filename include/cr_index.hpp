@@ -45,16 +45,18 @@ class CRIndex {
                      crappy_preprocess(string path, bool verbose = DEFAULT_VERBOSITY);
 
         void SaveToFile(string filename);
-        static CRIndex* LoadFromFile(string filename);
+        static CRIndex* LoadFromFile(string filename, bool verbose = DEFAULT_VERBOSITY);
     private:
         int read_length;
-        vector<t_pos> positions;
-        vector<t_diff> diff;
+/*        vector<t_pos> positions;
+        vector<t_diff> diff;*/
         t_pv_vector pv_vector;
         DiffVector diff_vector;
         BloomFilter bloom_filter;
         FMWrapper<> fm_index;
 
+        void FinishInit(string supersting, vector<t_pos> positions,
+                        vector<t_diff> diff);
         vector<t_pos> locate_positions(const string& s);
         vector<t_pos> locate_positions2(const string& s, const string& check_s);
         string extract_original_read(t_pos read);

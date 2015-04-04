@@ -67,6 +67,7 @@ void go(string index_filename, string bac_filename) {
     cout << "Building CRIndex ... " << endl;
     CRIndex *rm = CRIndex::LoadFromFile(index_filename);
     cout << "Referenced memory: " << get_referenced_memory_size() << "kB" << endl;
+    rm->SaveToFile("saving-test.index");
     malloc_trim(42);
     cout << "Referenced memory: " << get_referenced_memory_size() << "kB" << endl;
     cout << "Querying ..." << endl;
@@ -87,7 +88,7 @@ void go(string index_filename, string bac_filename) {
     chrono::duration<double> elapsed;
     t1 = std::chrono::system_clock::now();
     int total_found = 0;
-    for (int i = 0; i < queries.size(); i++) {
+    for (size_t i = 0; i < queries.size(); i++) {
       total_found += rm->find_indexes(queries[i]).size();
     }
     cout << "total found" << total_found << endl;

@@ -8,43 +8,80 @@ const int CRIndex::DEFAULT_READ_LENGTH = 100;
 bool CRIndex::verbose = CRIndex::DEFAULT_VERBOSITY;
 
 CRIndex::CRIndex(string p, int rl, bool v, bool crappy) {
-    this->positions = vector<t_pos>();
-    this->diff = vector<t_diff>();
-    this->read_length = rl;
+    vector<t_pos> positions;
+    vector<t_diff> diff;
     CRIndex::verbose = v;
 
+    read_length = rl;
     debug("Constructing CRIndex...");
     string superstring;
 
     if (crappy) {
-      tie(superstring, this->positions, this->diff) = crappy_preprocess(p, v);
+      tie(superstring, positions, diff) = crappy_preprocess(p, v);
     } else {
-      tie(superstring, this->positions, this->diff) = preprocess(p, v);
+      tie(superstring, positions, diff) = preprocess(p, v);
     }
-    this->fm_index = FMWrapper<>(superstring);
+    FinishInit(superstring, positions, diff);
     debug("FM index done\n");
-    sort(this->positions.begin(), this->positions.end());
-    superstring.clear();
 }
 
-CRIndex::CRIndex(string superstring, vector<t_pos> p, vector<t_diff> d, int rl, bool v) {
-    this->positions = p;
-    this->diff = d;
+CRIndex::CRIndex(string superstring, vector<t_pos> positions, vector<t_diff> diff, int rl, bool v) {
     this->read_length = rl;
     CRIndex::verbose = v;
 
-    this->fm_index = FMWrapper<>(superstring);
-    sort(this->positions.begin(), this->positions.end());
-    superstring.clear();
+    FinishInit(superstring, positions, diff);
 }
+
+void CRIndex::FinishInit(string superstring, vector<t_pos> positions,
+                         vector<t_diff> diff) {
+    this->fm_index = FMWrapper<>(superstring);
+    this->pv_vector = t_pv_vector(superstring.size(), positions);
+    this->diff_vector = DiffVector(positions.size(), this->read_length, diff);
+    cout << "pv size " << this->pv_vector.memory_size() << " " << positions.size() << endl;
+    cout << "diffs size " << diff.size() << " " << diff.size() * 12 << endl;
+    cout << "new diffs " << this->diff_vector.memory_size() << endl;
+    this->bloom_filter = BloomFilter(diff.size() * 15, 0.2);
+    for (auto &p: positions) {
+      int pos, read_id;
+      bool rev;
+      tie(pos, read_id, rev) = p;
+      auto diffs = this->diff_vector.GetDiffs(read_id);
+      string read_str = superstring.substr(pos, this->read_length);
+      if (rev) {
+        read_str = cr_util::rev_compl(read_str);
+      }
+      for (auto d: diffs) {
+        int read_id, pos;
+        char new_base;
+        tie(read_id, pos, new_base) = d;
+        for (int i = max(0, pos-14); i <= pos; i++) {
+          string kmer = read_str.substr(i, 15);
+          string kmer2 = kmer;
+          kmer2[pos-i] = new_base;
+          if (!rev) {
+            this->bloom_filter.Add(kmer, kmer2);
+          } else {
+            this->bloom_filter.Add(cr_util::rev_compl(kmer), cr_util::rev_compl(kmer2)); 
+          }
+        }
+      }
+    }
+    superstring.clear();}
 
 void CRIndex::SaveToFile(string filename) {
     ofstream of(filename);
     of << read_length << endl;
     of << fm_index.extract(0, fm_index.index_size()-1) << endl;
+    vector<t_pos> positions = pv_vector.GetRange(0, fm_index.index_size()-1);
     of << positions.size() << endl;
     for (auto &e: positions) {
         of << get<0>(e) << " " << get<1>(e) << " " << get<2>(e) << endl;
+    }
+    vector<t_diff> diff;
+    for (size_t i = 0; i < positions.size(); i++) {
+      vector<t_diff> d;
+      d = diff_vector.GetDiffs(i);
+      diff.insert(diff.end(), d.begin(), d.end());
     }
     of << diff.size() << endl;
     for (auto &e: diff) {
@@ -53,13 +90,12 @@ void CRIndex::SaveToFile(string filename) {
     of.close();
 }
 
-CRIndex* CRIndex::LoadFromFile(string filename) {
+CRIndex* CRIndex::LoadFromFile(string filename, bool verbose) {
     ifstream f(filename);
-    CRIndex* index = new CRIndex();
-    f >> index->read_length;
+    int read_length;
+    f >> read_length;
     string superstring;
     f >> superstring;
-    index->fm_index = FMWrapper<>(superstring);
     int positions_length;
     f >> positions_length;
     vector<t_pos> positions(positions_length);
@@ -78,38 +114,7 @@ CRIndex* CRIndex::LoadFromFile(string filename) {
         f >> get<2>(diff[i]);
     }
     f.close();
-    index->pv_vector = t_pv_vector(superstring.size(), positions);
-    index->diff_vector = DiffVector(positions.size(), index->read_length, diff);
-    cout << "pv size " << index->pv_vector.memory_size() << " " << positions.size() << endl;
-    cout << "diffs size " << diff.size() << " " << diff.size() * 12 << endl;
-    cout << "new diffs " << index->diff_vector.memory_size() << endl;
-    index->bloom_filter = BloomFilter(diff.size() * 15, 0.2);
-    for (auto &p: positions) {
-      int pos, read_id;
-      bool rev;
-      tie(pos, read_id, rev) = p;
-      auto diffs = index->diff_vector.GetDiffs(read_id);
-      string read_str = superstring.substr(pos, index->read_length);
-      if (rev) {
-        read_str = cr_util::rev_compl(read_str);
-      }
-      for (auto d: diffs) {
-        int read_id, pos;
-        char new_base;
-        tie(read_id, pos, new_base) = d;
-        for (int i = max(0, pos-14); i <= pos; i++) {
-          string kmer = read_str.substr(i, 15);
-          string kmer2 = kmer;
-          kmer2[pos-i] = new_base;
-          if (!rev) {
-            index->bloom_filter.Add(kmer, kmer2);
-          } else {
-            index->bloom_filter.Add(cr_util::rev_compl(kmer), cr_util::rev_compl(kmer2)); 
-          }
-        }
-      }
-    }
-    return index;
+    return new CRIndex(superstring, positions, diff, read_length, verbose);
 }
 
 tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::crappy_preprocess(string p, bool v) {
@@ -409,7 +414,7 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
             "Superstring size:  " + to_string(superstring.size()) + "\n" +
             "Compress ratio: " + to_string((float)total_reads_size / (float)superstring.size()) + "\n" +
             "Diff size: " + to_string(_diff.size()));
-
+    sort(_positions.begin(), _positions.end());
     return make_tuple(superstring, _positions, _diff);
 }
 
@@ -478,10 +483,8 @@ vector<t_pos> CRIndex::locate_positions(const string& s) {
 
     if (this->diff_vector.size() > 0) {
       for (string s2 : cr_util::strings_with_edt1(s, bloom_filter)) {
-//          if (bloom_filter.Test(s2, s)) {
-            vector<t_pos> temp = locate_positions2(s2, s);
-            retval.insert(retval.end(), temp.begin(), temp.end());
-//          }
+          vector<t_pos> temp = locate_positions2(s2, s);
+          retval.insert(retval.end(), temp.begin(), temp.end());
       }
     }
 
@@ -533,10 +536,6 @@ string CRIndex::extract_original_read(t_pos read_p) {
     int read_id = get<1>(read_p);
     bool rev_compl = get<2>(read_p);
 
-/*    t_diff start_index(read_id, -1, 'A');
-    t_diff end_index(read_id, numeric_limits<int>::max(), 'A');
-    auto low = lower_bound(this->diff.begin(), this->diff.end(), start_index);
-    auto up = upper_bound(this->diff.begin(), this->diff.end(), end_index);*/
     vector<t_diff> diffs = this->diff_vector.GetDiffs(read_id);
     auto low = diffs.begin();
     auto up = diffs.end();
