@@ -12,7 +12,7 @@ using namespace std;
 //        text_order_sa_sampling<sd_vector<>>> fm_index_type;
 //typedef csa_wt<wt_huff<rrr_vector<127> >, 16, 32> fm_index_type;
 
-template<uint32_t n1=32, uint32_t n2=5000000>
+template<uint32_t n1=8, uint32_t n2=5000000>
 class FMWrapper {
     typedef csa_wt<wt_huff<bit_vector, rank_support_v<>, select_support_scan<>>, n1, n2> fm_index_type;
 //    typedef csa_wt<wt_rlmn<bit_vector, rank_support_v5<>, select_support_mcl<1>, wt_huff<>>, n1, n2> fm_index_type;

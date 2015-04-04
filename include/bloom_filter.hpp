@@ -23,6 +23,7 @@
 #include <sdsl/bit_vectors.hpp>
 
 using namespace std;
+using namespace sdsl;
 
 class BloomFilter {
   public:
@@ -38,7 +39,7 @@ class BloomFilter {
       util::set_to_value(data, 0);
     }
 
-    void Add(string s1, string s2) {
+    void Add(const string& s1, const string& s2) {
       auto h1 = hh(s1);
       auto h2 = hh(s2);
       for (int i = 0; i < k; i++) {
@@ -50,7 +51,7 @@ class BloomFilter {
       }
     }
 
-    bool Test(string s1, string s2) {
+    bool Test(const string& s1, const string& s2) const {
       auto h1 = hh(s1);
       auto h2 = hh(s2);
       for (int i = 0; i < k; i++) {

@@ -10,6 +10,7 @@
 #include <pstreams/pstream.h>
 
 using namespace std;
+class BloomFilter;
 
 namespace cr_util {
     bool check_read(const string& read);
@@ -22,6 +23,7 @@ namespace cr_util {
     vector<int> diff_indexes(const string& s1, const string& s2);
     bool indexes_close(vector<int> indexes, int k);
     vector<string> strings_with_edt1(const string& s);
+    vector<string> strings_with_edt1(const string& s, const BloomFilter &filter);
 }
 
 #endif

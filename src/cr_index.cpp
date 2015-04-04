@@ -418,7 +418,7 @@ vector<t_pos> CRIndex::locate_positions2(const string& s, const string& s_check)
     static long long empty_calls = 0;
     vector<t_pos> retval;
     vector<int> indexes = this->fm_index.locate(s);
-
+    string s2;
     for (auto i : indexes) {
         t_pos start_index(i + s.length() - this->read_length, -1, 0);
         t_pos end_index(i, numeric_limits<int>::max(), 1);
@@ -437,7 +437,7 @@ vector<t_pos> CRIndex::locate_positions2(const string& s, const string& s_check)
             auto low2 = diffs.begin();
             auto up2 = diffs.end();
             
-            string s2 = s;
+            s2 = s;
             if (rev_compl) {
                 s2 = cr_util::rev_compl(s2);
 
@@ -477,11 +477,11 @@ vector<t_pos> CRIndex::locate_positions(const string& s) {
     vector<t_pos> retval = locate_positions2(s, s);
 
     if (this->diff_vector.size() > 0) {
-      for (string s2 : cr_util::strings_with_edt1(s)) {
-          if (bloom_filter.Test(s2, s)) {
+      for (string s2 : cr_util::strings_with_edt1(s, bloom_filter)) {
+//          if (bloom_filter.Test(s2, s)) {
             vector<t_pos> temp = locate_positions2(s2, s);
             retval.insert(retval.end(), temp.begin(), temp.end());
-          }
+//          }
       }
     }
 

@@ -1,4 +1,5 @@
 #include "util.hpp"
+#include "bloom_filter.hpp"
 
 using namespace std;
 
@@ -151,6 +152,23 @@ namespace cr_util {
         }
 
         return false;
+    }
+
+    vector<string> strings_with_edt1(const string& s, const BloomFilter &filter) {
+        vector<string> retval;
+        string chars = "ACTG";
+        string s2 = s;
+        for (size_t i = 0; i < s.size(); i++) {
+            for (size_t j = 0; j < chars.size(); j++) {
+                s2[i] = chars[j];
+                if (s != s2 && filter.Test(s2, s)) {
+                    retval.push_back(s2);
+                }
+            }
+            s2[i] = s[i];
+        }
+
+        return retval;
     }
 
     vector<string> strings_with_edt1(const string& s) {

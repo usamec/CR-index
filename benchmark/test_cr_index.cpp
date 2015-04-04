@@ -80,7 +80,7 @@ void go(string index_filename, string bac_filename) {
       buf += line;
     }
     vector<string> queries;
-    for (int i = 0; i < 10000; i++) {
+    for (int i = 0; i < 100000; i++) {
       queries.push_back(buf.substr(rand()%(buf.size() - 20), 15));
     }
     chrono::time_point<std::chrono::system_clock> t1, t2;
