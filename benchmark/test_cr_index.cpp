@@ -67,7 +67,7 @@ void go(string index_filename, string bac_filename) {
     cout << "Building CRIndex ... " << endl;
     CRIndex *rm = CRIndex::LoadFromFile(index_filename);
     cout << "Referenced memory: " << get_referenced_memory_size() << "kB" << endl;
-    rm->SaveToFile("saving-test.index");
+//    rm->SaveToFile("saving-test.index");
     malloc_trim(42);
     cout << "Referenced memory: " << get_referenced_memory_size() << "kB" << endl;
     cout << "Querying ..." << endl;

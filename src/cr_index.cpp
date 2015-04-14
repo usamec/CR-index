@@ -35,6 +35,8 @@ CRIndex::CRIndex(string superstring, vector<t_pos> positions, vector<t_diff> dif
 void CRIndex::FinishInit(string superstring, vector<t_pos> positions,
                          vector<t_diff> diff) {
     this->fm_index = FMWrapper<>(superstring);
+    cout << "superstring size " << superstring.size() << endl;
+    cout << "fm index size " << this->fm_index.memory_size() << endl;
     this->pv_vector = t_pv_vector(superstring.size(), positions);
     this->diff_vector = DiffVector(positions.size(), this->read_length, diff);
     cout << "pv size " << this->pv_vector.memory_size() << " " << positions.size() << endl;
@@ -66,7 +68,8 @@ void CRIndex::FinishInit(string superstring, vector<t_pos> positions,
         }
       }
     }
-    superstring.clear();}
+    superstring.clear();
+}
 
 void CRIndex::SaveToFile(string filename) {
     ofstream of(filename);
@@ -155,7 +158,13 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::crappy_preprocess(string p
     return make_tuple(superstring, _positions, _diff);
 }
 
+void PrintTime(string s) {
+  auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+  cout << s << " " << std::ctime(&t) << endl;
+}
+
 tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool v) {
+    PrintTime("Starting time");
     CRIndex::verbose = v;
     vector<t_pos> _positions = vector<t_pos>();
     vector<t_diff> _diff = vector<t_diff>();
@@ -181,6 +190,7 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
     boost::filesystem::path corr_ncrit_reads_path = boost::filesystem::path(
                 p_tmpdir.string() + ".ncrit.corr");
 
+    PrintTime("Correct 1 time");
     ifstream orig_reads_istream(orig_reads_path.string());
     ifstream corr_reads_istream(corr_reads_path.string());
     ofstream corr_ncrit_reads_ostream(corr_ncrit_reads_path.string());
@@ -193,7 +203,7 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
     string read_q;
     string ll;
     debug("Filling read_corrector");
-    while (getline(orig_reads_istream, read_label)) {
+/*    while (getline(orig_reads_istream, read_label)) {
         getline(orig_reads_istream, orig_read);
         getline(orig_reads_istream, read_meta);
         getline(orig_reads_istream, read_q);
@@ -201,7 +211,7 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
         boost::algorithm::trim(orig_read);
         boost::algorithm::trim(corr_read);
         read_corrector.AddRead(orig_read);
-    }
+    }*/
     orig_reads_istream.clear();
     orig_reads_istream.seekg(0);
 
@@ -229,7 +239,15 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
         }
         vector<int> diff_indexes = cr_util::diff_indexes(orig_read, corr_read);
         if (diff_indexes.size() >= 2 && cr_util::indexes_close(diff_indexes, 15)) {
-          corr_read = read_corrector.CorrectRead(orig_read);
+//          corr_read = read_corrector.CorrectRead(orig_read);
+          int last_diff = -47;
+          for (int i = 0; i < orig_read.size(); i++) {
+            if (orig_read[i] != corr_read[i] && i - last_diff < 15) {
+              corr_read[i] = orig_read[i];
+            } else if (orig_read[i] != corr_read[i]) {
+              last_diff = i;
+            }
+          }
           diff_indexes = cr_util::diff_indexes(orig_read, corr_read);
         }
         int read_id = read_count;
@@ -259,6 +277,7 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
 
     debug("Total " + to_string(read_count) + " reads. critical: " +
             to_string(crit_count) + " noncritical: " + to_string(ncrit_count));
+    PrintTime("Correct 2 time");
 
     // rerun sga index with noncritical reads only
     debug("Running sga index");
@@ -268,6 +287,7 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
     debug(cr_util::execute_command("sga overlap -t 4 -p " +
             p_tmpdir.string() + " " + corr_ncrit_reads_path.string()));
 
+    PrintTime("Overlap time");
     // get path of overlap file because dickish sga overlap saves it to workdir
     boost::filesystem::path overlap_path = boost::filesystem::path(
             boost::filesystem::current_path() / (corr_ncrit_reads_path.stem().string() + ".asqg.gz"));
@@ -292,6 +312,7 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
     // construct FM-index, find each read in it and add missing reads
     FMWrapper<1,1> _fm_index(superstring);
 
+    PrintTime("Assemble 1 time");
     debug("Superstring size: " + to_string(superstring.size()) + " (before" +
             " querying)");
 
@@ -338,17 +359,19 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
         }
         read_count++;
     }
+    PrintTime("Query 1 time");
 
     missing_file.close();
     cout << "missing count " << missing_read_count << endl;
     debug(cr_util::execute_command("sga index -a ropebwt -c -t 4 -p " +
             p_tmpdir.string() + "missing " + missing_path.string()));
-    debug(cr_util::execute_command("sga overlap -t 4 -m 25 -p " + p_tmpdir.string() + "missing " +
+    debug(cr_util::execute_command("sga overlap -t 4 -m 35 -p " + p_tmpdir.string() + "missing " +
                                    missing_path.string())); 
-    debug(cr_util::execute_command("bin/overlaper crmissing.asqg.gz " +
+    debug(cr_util::execute_command("bin/overlaper2 crmissing.asqg.gz " +
                                    missing_contig_path.string()));  
     read_count = 0;
     superstring += cr_util::load_contigs(missing_contig_path.string());
+    PrintTime("Assemble 2 time");
     cout << "Superstring size: " << superstring.size() << endl;
     debug("Querying FM index for all reads");
     corr_ncrit_reads_istream.clear();
@@ -399,6 +422,7 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
     }
     
     corr_ncrit_reads_istream.close();
+    PrintTime("Query 2 time");
 
     debug("Superstring:" + superstring.substr(0, 20) + "..." + 
           superstring.substr(superstring.size()-20));
@@ -415,6 +439,7 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
             "Compress ratio: " + to_string((float)total_reads_size / (float)superstring.size()) + "\n" +
             "Diff size: " + to_string(_diff.size()));
     sort(_positions.begin(), _positions.end());
+    PrintTime("Finished time");
     return make_tuple(superstring, _positions, _diff);
 }
 

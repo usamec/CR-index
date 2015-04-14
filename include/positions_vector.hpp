@@ -55,6 +55,7 @@ class PositionsVector {
     }
 
     PositionsVector(int superstring_size, vector<t_pos> positions) {
+      cout << "positions size " << positions.size() << endl;
       bit_vector hits_(superstring_size, 0);
       bit_vector reverses_(positions.size());
       t_int_vector read_ids_(positions.size());
@@ -121,7 +122,7 @@ class PositionsVector {
       cout << "pv hits rank " << sdsl::size_in_bytes(hits_rank) << endl;
       cout << "pv hits sel  " << sdsl::size_in_bytes(hits_select) << endl;
       cout << "pv reverses  " << sdsl::size_in_bytes(reverses) << endl;
-      cout << "pv read_ids  " << sdsl::size_in_bytes(read_ids) << endl;
+      cout << "pv read_ids  " << sdsl::size_in_bytes(read_ids) << " " << read_ids.size() <<  endl;
       cout << "pv dups bit  " << sdsl::size_in_bytes(dups_bitmap) << endl;
       cout << "pv dups rank " << sdsl::size_in_bytes(dups_rank) << endl;
       cout << "pv dups ids  " << sdsl::size_in_bytes(dups_ids) << endl;

@@ -38,6 +38,34 @@ string rev_compl(const string& s) {
     return rc;
 }
 
+void Erase(string &x, unordered_map<string, unordered_set<string>>& gg) {
+  for (auto &y: gg[x]) {
+    gg[y].erase(x);
+  }
+  gg.erase(x);
+}
+
+int GetBestOverL(const string &a, const string &b) {
+  string rc = rev_compl(a);
+  int start = min(a.size(), b.size());
+  start = min(151, start);
+  for (int i = start; i > 0; i--) {
+    if (a.substr(a.size() - i, i) == b.substr(0, i)) {
+      return i;
+    }
+    if (b.substr(b.size() - i, i) == a.substr(0, i)) {
+      return i;
+    }
+    if (rc.substr(rc.size() - i, i) == b.substr(0, i)) {
+      return i;
+    }
+    if (b.substr(b.size() - i, i) == rc.substr(0, i)) {
+      return i;
+    }
+  }
+  return 0;
+}
+
 string GetBestOver(const string &a, const string &b) {
   string rc = rev_compl(a);
   int start = min(a.size(), b.size());
@@ -59,48 +87,57 @@ string GetBestOver(const string &a, const string &b) {
   return a + b;
 }
 
-string DoOverlap(vector<string> r) {
-  if (r.size() >= 50) 
-    fprintf(stdout, "over %d\n", r.size());
-  unordered_set<string> reads(r.begin(), r.end());
-  priority_queue<pair<int, pair<string, string>>> overs;
-  for (auto &x: reads) {
-    for (auto &y: reads) {
-      if (x == y) {
-        continue;
-      }
-      string q = GetBestOver(x, y);
-      overs.push(make_pair(x.size() + y.size() - q.size(), make_pair(x, y)));
-    }
+string DoOverlap(vector<string>& cur_g, vector<string>& cur_c, unordered_map<string, unordered_set<string>>& g) {
+  unordered_map<string, unordered_set<string>> gg;
+  unordered_map<string, string> rr;
+  for (int i = 0; i < cur_c.size(); i++) {
+    rr[cur_g[i]] = cur_c[i];
+    gg[cur_g[i]] = g[cur_g[i]];
   }
-  while (reads.size() > 1) {
-    pair<string, string> over;
-    while (true) {
-      over = overs.top().second;
-      overs.pop();
-      if (reads.count(over.first) && reads.count(over.second)) {
+
+  string ret;
+  while (gg.size() > 0) {
+    string start = "";
+    string cur = "";
+    for (auto &x: gg) {
+      if (x.second.size() <= 1) {
+        start = x.first;
         break;
       }
     }
-    string q = GetBestOver(over.first, over.second);
-    reads.erase(over.first);
-    reads.erase(over.second);
-    reads.insert(q);
-    for (auto &x: reads) {
-      if (x == q) continue;
-      string q2 = GetBestOver(x, q);
-      overs.push(make_pair(x.size() + q.size() - q2.size(), make_pair(x, q)));
+    if (start == "") {
+      start = gg.begin()->first;
     }
+    cur = rr[start];
+    while (true) {
+      string next = "";
+      int bo = 0;
+      for (auto &y: gg[start]) {
+        int l = GetBestOverL(cur, rr[y]);
+        if (l > bo) {
+          next = y;
+          bo = l;
+        }
+      }
+      cur = GetBestOver(rr[next], cur);
+      Erase(start, gg);
+      if (next == "") break;
+      start = next;
+    }
+    ret += cur;
   }
-  for (int i = 0; i < r.size(); i++) {
-    if (reads.begin()->find(r[i]) == string::npos &&
-        reads.begin()->find(rev_compl(r[i])) == string::npos) {
+
+  for (int i = 0; i < cur_c.size(); i++) {
+    if (ret.find(cur_c[i]) == string::npos &&
+        ret.find(rev_compl(cur_c[i])) == string::npos) {
       printf("Dafug\n");
       exit(457);
     }
   }
-  return *reads.begin();
+
+  return ret;
 }
+
 
 int main(int argc, char** argv) {
   FILE *outf = fopen(argv[2], "w");
@@ -115,9 +152,8 @@ int main(int argc, char** argv) {
   string line;
   int total_len = 0;
   int over_len = 0;
-  unordered_map<string, vector<string>> g1;
   unordered_map<string, vector<int>> g_lens;
-  unordered_map<string, vector<string>> g;
+  unordered_map<string, unordered_set<string>> g;
   unordered_map<string, string> reads;
   vector<pair<pair<string, string>, int>> edges;
   while (getline(input, line)) {
@@ -125,9 +161,9 @@ int main(int argc, char** argv) {
       vector<string> items;
       boost::algorithm::split(items, line, boost::algorithm::is_any_of("\t"));
       total_len += items[2].size();
-      if (g1.count(items[1]) == 0) {
-        g1[items[1]] = vector<string>();
-        g[items[1]] = vector<string>();
+      if (g.count(items[1]) == 0) {
+        g[items[1]] = unordered_set<string>();
+        g[items[1]] = unordered_set<string>();
       }
       reads[items[1]] = items[2];
     }
@@ -135,8 +171,8 @@ int main(int argc, char** argv) {
       vector<string> items;
       boost::algorithm::split(items, line, boost::algorithm::is_any_of("\t "));
       over_len += abs(stoi(items[3]) - stoi(items[4]));
-      g1[items[1]].push_back(items[2]);
-      g1[items[2]].push_back(items[1]);
+      g[items[1]].insert(items[2]);
+      g[items[2]].insert(items[1]);
       int over_len = stoi(items[4]) - stoi(items[3]);
       g_lens[items[1]].push_back(over_len);
       g_lens[items[2]].push_back(over_len);
@@ -144,44 +180,14 @@ int main(int argc, char** argv) {
     }
   }
   printf("graph loaded\n");
-  g = g1;
-/*  unordered_map<string, int> over_lim;
-  for (auto &x: g1) {
-    if (x.second.size() < 5) {
-      over_lim[x.first] = 0;
-    } else {
-      sort(g_lens[x.first].rbegin(), g_lens[x.first].rend());
-      over_lim[x.first] = g_lens[x.first][4];
-    }
-  }
-  printf("over lim done\n");
-  for (auto &e: edges) {
-    if (e.second >= over_lim[e.first.first] || e.second >= over_lim[e.first.second]) {
-      g[e.first.first].push_back(e.first.second);
-      g[e.first.second].push_back(e.first.first);
-    }
-  }
-  printf("g cleaned\n");*/
-  int cont = 0;
-  for (auto &e: g_lens) {
-    bool c = false;
-    for (auto &y: e.second) {
-      if (y == 150) {
-        c = true;
-      }
-    }
-    if (c) cont++;
-  }
-  printf("cont %d\n", cont);
-  unordered_set<string> visited;
-  map<int, int> c_dist;
-
+//  g = g1;
   vector<string> cur_c;
   vector<string> cur_g;
   int before = 0;
   int after = 0;
   int total_reads = 0;
   fprintf(outf, ">r1\n");
+  unordered_set<string> visited;
   for (auto &x: g) {
     cur_c.clear();
     cur_g.clear();
@@ -201,33 +207,14 @@ int main(int argc, char** argv) {
         fr.push(y);
       }
     }
-    c_dist[c_size]++;
     for (auto &x: cur_c) {
       before += x.size();
     }
-    string over = DoOverlap(cur_c);
+    string over = DoOverlap(cur_g, cur_c, g);
     fprintf(outf, "%s", over.c_str());
     after += over.size();
     total_reads += cur_c.size();
-    if (cur_g.size() > 5000) {
-  /*    int vc = cur_g.size();
-      int ec = 0;
-      map<int, int> sd;
-      for (auto &x: cur_g) {
-        ec += g[x].size();
-        sd[g[x].size()] += 1;
-      }
-      ec /= 2;
-      cout << "wat " << vc << " " << ec << endl;
-      for (auto &x: sd) {
-        cout << x.first << " " << x.second << endl;
-      }
-      exit(0);*/
-    }
   }
   fprintf(outf, "\n");
   fprintf(stdout, "before %d after %d reads %d\n", before, after, total_reads);
-  for (auto &e: c_dist) {
-    cout << e.first << " " << e.second << " " << e.first * e.second << endl;
-  }
 }
