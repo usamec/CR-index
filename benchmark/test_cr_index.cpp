@@ -82,7 +82,18 @@ void go(string index_filename, string bac_filename) {
     }
     vector<string> queries;
     for (int i = 0; i < 100000; i++) {
-      queries.push_back(buf.substr(rand()%(buf.size() - 20), 15));
+      string q;
+      while (true) {
+        q = buf.substr(rand()%(buf.size() - 20), 15);
+        bool good = true;
+        for (int j = 0; j < q.size(); j++) {
+          if (q[j] == 'A' || q[j] == 'C' || q[j] == 'G' || q[j] == 'T') continue;
+          good = false;
+          break;
+        }
+        if (good) break;
+      }
+      queries.push_back(q);
     }
     chrono::time_point<std::chrono::system_clock> t1, t2;
     chrono::duration<double> elapsed;

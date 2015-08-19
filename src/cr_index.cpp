@@ -42,7 +42,7 @@ void CRIndex::FinishInit(string superstring, vector<t_pos> positions,
     cout << "pv size " << this->pv_vector.memory_size() << " " << positions.size() << endl;
     cout << "diffs size " << diff.size() << " " << diff.size() * 12 << endl;
     cout << "new diffs " << this->diff_vector.memory_size() << endl;
-    this->bloom_filter = BloomFilter(diff.size() * 15, 0.2);
+    this->bloom_filter = BloomFilter(diff.size() * 15, 0.05);
     for (auto &p: positions) {
       int pos, read_id;
       bool rev;
@@ -183,6 +183,7 @@ tuple<string, vector<t_pos>, vector<t_diff>> CRIndex::preprocess(string p, bool 
     debug(cr_util::execute_command("sga correct -t 16 -p " +
                 p_tmpdir.string() + " -o " + p_tmpdir.string() + ".ec.fa " +
                 orig_reads_path.string()));
+//    debug(cr_util::execute_command("cat <" + orig_reads_path.string() + " >" + p_tmpdir.string() + ".ec.fa"));
     boost::filesystem::path corr_reads_path = boost::filesystem::path(
             p_tmpdir.string() + ".ec.fa");
     cr_util::check_path_existence(corr_reads_path);

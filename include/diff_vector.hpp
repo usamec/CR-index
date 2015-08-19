@@ -88,12 +88,18 @@ class DiffVector {
       int start_pos = read_id * read_length;
       int end_pos = (read_id + 1) * read_length;
       int start_rank = rank(start_pos);
-      int end_rank = rank(end_pos);
+//      int end_rank = rank(end_pos);
       vector<t_diff> ret;
-      for (int i = start_rank; i < end_rank; i++) {
+/*      for (int i = start_rank; i < end_rank; i++) {
         int pos = select(i+1);
         ret.push_back(make_tuple(read_id, pos - start_pos, IntToBase(diffs[i])));
+      }*/
+      for (int i = start_rank; i < diffs.size(); i++) {
+        int pos = select(i+1);
+        if (pos >= end_pos) break;
+        ret.push_back(make_tuple(read_id, pos - start_pos, IntToBase(diffs[i])));
       }
+
       return ret;
     }
 

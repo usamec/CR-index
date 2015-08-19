@@ -88,6 +88,7 @@ string GetBestOver(const string &a, const string &b) {
 }
 
 string DoOverlap(vector<string>& cur_g, vector<string>& cur_c, unordered_map<string, unordered_set<string>>& g) {
+  printf("do over %d\n", cur_g.size());
   unordered_map<string, unordered_set<string>> gg;
   unordered_map<string, string> rr;
   for (int i = 0; i < cur_c.size(); i++) {
@@ -96,18 +97,26 @@ string DoOverlap(vector<string>& cur_g, vector<string>& cur_c, unordered_map<str
   }
 
   string ret;
+  queue<string> start_cands;
   while (gg.size() > 0) {
     string start = "";
     string cur = "";
-    for (auto &x: gg) {
-      if (x.second.size() <= 1) {
-        start = x.first;
-        break;
+    if (start_cands.empty()) {
+      for (auto &x: gg) {
+        if (x.second.size() <= 1) {
+          start_cands.push(x.first);
+        }
       }
+    }
+    if (!start_cands.empty()) {
+      start = start_cands.front();
+      start_cands.pop();
     }
     if (start == "") {
       start = gg.begin()->first;
     }
+    if (rand() % 1000 == 0)
+      printf("start size %d %d\n", gg[start].size(), gg.size());
     cur = rr[start];
     while (true) {
       string next = "";
@@ -127,13 +136,15 @@ string DoOverlap(vector<string>& cur_g, vector<string>& cur_c, unordered_map<str
     ret += cur;
   }
 
-  for (int i = 0; i < cur_c.size(); i++) {
+  printf("checking\n");
+
+/*  for (int i = 0; i < cur_c.size(); i++) {
     if (ret.find(cur_c[i]) == string::npos &&
         ret.find(rev_compl(cur_c[i])) == string::npos) {
       printf("Dafug\n");
       exit(457);
     }
-  }
+  }*/
 
   return ret;
 }
@@ -196,7 +207,9 @@ int main(int argc, char** argv) {
     queue<string> fr;
     fr.push(x.first);
     visited.insert(x.first);
+    printf("gogo\n");
     while (!fr.empty()) {
+      if (cur_c.size() % 100 == 0) printf("cs %d\n", cur_c.size());
       c_size++;
       string x = fr.front(); fr.pop();
       cur_c.push_back(reads[x]);
